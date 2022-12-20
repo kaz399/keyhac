@@ -29,7 +29,7 @@ if len(args)>0:
 
 #-------------------------------------------
 
-PYTHON_DIR = "c:/python38"
+PYTHON_DIR = "c:/opt/python311"
 
 PYTHON = PYTHON_DIR + "/python.exe"
 
@@ -40,9 +40,9 @@ VERSION = keyhac_resource.keyhac_version.replace(".","")
 ARCHIVE_NAME = "keyhac_%s.zip" % VERSION
 
 DIST_FILES = {
-    "keyhac.exe" :          "keyhac/keyhac.exe",
+    "x64/Release/keyhac.exe" :          "keyhac/keyhac.exe",
     "lib" :                 "keyhac/lib",
-    "python38.dll" :        "keyhac/python38.dll",
+    "python311.dll" :        "keyhac/python311.dll",
     "_config.py" :          "keyhac/_config.py",
     "readme_en.txt" :       "keyhac/readme_en.txt",
     "readme_ja.txt" :       "keyhac/readme_ja.txt",
@@ -51,7 +51,7 @@ DIST_FILES = {
     "license" :             "keyhac/license",
     "doc/html_en" :         "keyhac/doc/en",
     "doc/html_ja" :         "keyhac/doc/ja",
-    "library.zip" :         "keyhac/library.zip",
+    "build/Lib" :           "keyhac/packages",
     "dict/.keepme" :        "keyhac/dict/.keepme",
     "extension/.keepme" :   "keyhac/extension/.keepme",
     }
@@ -94,7 +94,14 @@ def compilePythonRecursively( src, dst, file_black_list=[], directory_black_list
                 dst_filename = os.path.join(dst+root[len(src):],filename+"c")
                 print("compile", src_filename, dst_filename )
                 py_compile.compile( src_filename, dst_filename, optimize=2 )
-
+            elif filename.endswith(".pyd"):
+                src_filename = os.path.join(root,filename)
+                dst_dir = dst+root[len(src):]
+                dst_filename = os.path.join(dst_dir,filename)
+                print("copy   ", src_filename, dst_filename )
+                if not os.path.isdir(dst_dir):
+                    os.makedirs(dst_dir)
+                shutil.copy( src_filename, dst_filename )
 
 def createZip( zip_filename, items ):
     z = zipfile.ZipFile( zip_filename, "w", zipfile.ZIP_DEFLATED, True )
@@ -125,7 +132,7 @@ def target_all():
 def target_compile():
 
     # compile python source files
-    compilePythonRecursively( "c:/python38/Lib", "build/Lib", 
+    compilePythonRecursively( "c:/opt/python311/Lib", "build/Lib",
         directory_black_list = [
             "site-packages",
             "test",
@@ -133,10 +140,10 @@ def target_compile():
             "idlelib",
             ]
         )
-    compilePythonRecursively( "c:/python38/Lib/site-packages/PIL", "build/Lib/PIL" )
-    compilePythonRecursively( "../ckit", "build/Lib/ckit" )
-    compilePythonRecursively( "../pyauto", "build/Lib/pyauto" )
-    compilePythonRecursively( ".", "build/Lib", 
+    compilePythonRecursively( "c:/opt/python311/Lib/site-packages/PIL", "build/Lib/PIL" )
+    compilePythonRecursively( "./ckit", "build/Lib/ckit" )
+    compilePythonRecursively( "./pyauto", "build/Lib/pyauto" )
+    compilePythonRecursively( ".", "build/Lib",
         file_black_list = [
             "makefile.py",
             "_config.py",
@@ -154,9 +161,9 @@ def target_copy():
 
     rmtree("lib")
 
-    shutil.copy( "c:/python38/python38.dll", "python38.dll" )
+    shutil.copy( "c:/opt/python311/python311.dll", "python311.dll" )
 
-    shutil.copytree( "c:/Python38/DLLs", "lib", 
+    shutil.copytree( "c:/opt/python311/DLLs", "lib",
         ignore=shutil.ignore_patterns(
             "tcl*.*",
             "tk*.*",
@@ -171,10 +178,10 @@ def target_copy():
             )
         )
 
-    shutil.copy( "c:/Python38/Lib/site-packages/PIL/_imaging.cp38-win32.pyd", "lib/_imaging.pyd" )
+    shutil.copy( "c:/opt/python311/Lib/site-packages/PIL/_imaging.cp311-win_amd64.pyd", "lib/_imaging.pyd" )
 
-    shutil.copy( "../ckit/ckitcore.pyd", "lib/ckitcore.pyd" )
-    shutil.copy( "../pyauto/pyautocore.pyd", "lib/pyautocore.pyd" )
+    shutil.copy( "./ckit/ckitcore.pyd", "lib/ckitcore.pyd" )
+    shutil.copy( "./pyauto/pyautocore.pyd", "lib/pyautocore.pyd" )
     shutil.copy( "migemo.dll", "lib/migemo.dll" )
 
 
@@ -202,19 +209,19 @@ def target_document():
 
 
 def target_dist():
-    
+
     rmtree("dist/keyhac")
 
     src_root = "."
     dst_root = "./dist"
-    
+
     for src, dst in DIST_FILES.items():
 
         src = os.path.join(src_root,src)
         dst = os.path.join(dst_root,dst)
 
         print( "copy : %s -> %s" % (src,dst) )
-            
+
         if os.path.isdir(src):
             shutil.copytree( src, dst )
         else:
@@ -229,7 +236,7 @@ def target_archive():
     os.chdir("dist")
     createZip( ARCHIVE_NAME, DIST_FILES.values() )
     os.chdir("..")
-    
+
     fd = open( "dist/%s" % ARCHIVE_NAME, "rb" )
     m = hashlib.md5()
     while 1:

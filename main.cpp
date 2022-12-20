@@ -2,6 +2,8 @@
 #include <vector>
 #include <list>
 
+#include <wchar.h>
+
 #include <windows.h>
 #include <shellapi.h>
 
@@ -13,13 +15,15 @@
 #include "python.h"
 #endif
 
-#define PYTHON_INSTALL_PATH L"c:\\python38"
+#define PYTHON_INSTALL_PATH L"c:\\opt\\python311"
 
 //--------------------------------------
 
 int AppMain()
 {
 	std::wstring exe_dir;
+	PyConfig py_conf;
+	PyConfig_InitIsolatedConfig(&py_conf);
 
 	// Get exe's directory
 	{
@@ -65,35 +69,29 @@ int AppMain()
 	// Python home
 	{
 #if defined(_DEBUG)
-		Py_SetPythonHome(PYTHON_INSTALL_PATH);
+		//PyConfig_SetString(&py_conf, &py_conf.home, PYTHON_INSTALL_PATH);
+		PyConfig_SetString(&py_conf, &py_conf.home, const_cast<wchar_t*>(exe_dir.c_str()));
 #else
-		Py_SetPythonHome(const_cast<wchar_t*>(exe_dir.c_str()));
+		PyConfig_SetString(&py_conf, &py_conf.home, const_cast<wchar_t*>(exe_dir.c_str()));
 #endif //_DEBUG
 	}
 
 	// Python module search path
 	{
-		std::wstring python_path;
+		std::wstring sys_path;
+		py_conf.module_search_paths_set = 1;
+		PyWideStringList_Append(&py_conf.module_search_paths, L"/extension");
 
-		python_path += exe_dir + L"/extension;";
-		
 		#if defined(_DEBUG)
-		python_path += exe_dir + L";";
-		python_path += exe_dir + L"/..;";
-		python_path += std::wstring(PYTHON_INSTALL_PATH) + L"\\Lib;";
-		python_path += std::wstring(PYTHON_INSTALL_PATH) + L"\\Lib\\site-packages;";
-		python_path += std::wstring(PYTHON_INSTALL_PATH) + L"\\DLLs;";
-		#else
-		python_path += exe_dir + L"/library.zip;";
-		python_path += exe_dir + L"/lib;";
+		PyWideStringList_Append(&py_conf.module_search_paths, (exe_dir + L"\\..\\..\\dist\\keyhac\\lib").c_str());
+		PyWideStringList_Append(&py_conf.module_search_paths, (exe_dir + L"\\..\\..\\dist\\keyhac\\packages").c_str());
+		//PyConfig_SetString(&py_conf, &py_conf.platlibdir, (exe_dir + L"\\..\\..\\dist\\keyhac\\lib").c_str());
+        #else
+		PyWideStringList_Append(&py_conf.module_search_paths, (exe_dir + L"\\lib").c_str());
+		PyWideStringList_Append(&py_conf.module_search_paths, (exe_dir + L"\\packages").c_str());
 		#endif
-		
-		Py_SetPath(python_path.c_str());
 	}
-
-	// Initialization
-	Py_Initialize();
-
+	
 	// Setup sys.argv
 	{
 		wchar_t * cmdline = GetCommandLine();
@@ -101,10 +99,14 @@ int AppMain()
 		int argc;
 		wchar_t ** argv = CommandLineToArgvW(cmdline, &argc);
 
-		PySys_SetArgv(argc, argv);
+		PyConfig_SetArgv(&py_conf, argc, argv);
 
 		LocalFree(argv);
 	}
+
+	// Initialization
+	Py_InitializeFromConfig(&py_conf);
+	PyConfig_Clear(&py_conf);
 
 	// enable DPI handling
 	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
@@ -114,6 +116,7 @@ int AppMain()
 		PyObject * module = PyImport_ImportModule("keyhac_main");
 		if (module == NULL)
 		{
+			OutputDebugStringA("ERROR\n");
 			PyErr_Print();
 		}
 

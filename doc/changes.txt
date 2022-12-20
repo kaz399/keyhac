@@ -2,11 +2,13 @@
 Changes
 =========
 
+    **1.82.1**
+
+        - Moved from Python38 to Python311 (64bit).
 
     **1.82**
 
         - Fixed oneshot modifier key behavior (didn't work once right after mouse clicks and wheel move).
-
 
     **1.81**
 
